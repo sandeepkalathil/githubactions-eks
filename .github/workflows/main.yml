@@ -94,7 +94,11 @@ jobs:
 
   deploy:
     needs: build-and-push
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Still needs a host runner
+    container: 
+      image: amazon/aws-cli:latest  # AWS CLI + Alpine-based image
+      options: --entrypoint /bin/sh  # Ensure it runs Bash commands
+
     permissions:
       id-token: write 
       contents: read
@@ -103,12 +107,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
+      - name: Install Dependencies
+        run: |
+          apk add --no-cache curl jq bash
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          mv kubectl /usr/local/bin/
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: eu-north-1  # Hardcoding since env variables might not be set yet
+          aws-region: eu-north-1
 
       - name: Set Environment Variables
         run: |
