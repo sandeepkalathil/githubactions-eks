@@ -10,7 +10,9 @@ env:
   AWS_REGION: eu-north-1
   ECR_REPOSITORY: freshfarm-repo  
   EKS_CLUSTER_NAME: Freshfarm-cluster  
-  K8S_NAMESPACE: freshmart  
+  K8S_NAMESPACE: freshmart
+  APP_NAME: freshmart
+  IMAGE_URI: 794038256791.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest
 
 jobs:
   test:
@@ -93,57 +95,36 @@ jobs:
           sarif_file: 'trivy-results.sarif'
 
   deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest  # Still needs a host runner
-    container: 
-      image: amazon/aws-cli:latest  # AWS CLI + Alpine-based image
-      options: --entrypoint /bin/sh  # Ensure it runs Bash commands
-
+    runs-on: ubuntu-latest
     permissions:
-      id-token: write 
+      id-token: write
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Install Dependencies
-        run: |
-          apk add --no-cache curl jq bash
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          mv kubectl /usr/local/bin/
-
-      - name: Configure AWS credentials
+      
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: eu-north-1
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Set Environment Variables
+      - name: Force Update Kubeconfig
         run: |
-          echo "AWS_REGION=eu-north-1" >> $GITHUB_ENV
-          echo "ECR_REPOSITORY=freshfarm-repo" >> $GITHUB_ENV
-          echo "EKS_CLUSTER_NAME=Freshfarm-cluster" >> $GITHUB_ENV
-          echo "K8S_NAMESPACE=freshmart" >> $GITHUB_ENV
-          echo "IMAGE_URI=123456789.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest" >> $GITHUB_ENV
-        shell: bash
-
-      - name: Update kubeconfig
-        run: aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION
+          aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
+          kubectl config use-context arn:aws:eks:eu-north-1:794038256791:cluster/$EKS_CLUSTER_NAME
 
       - name: Ensure Namespace Exists
-        run: |
-          kubectl create namespace $K8S_NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+        run: kubectl create namespace $K8S_NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Print Debugging Info
+      - name: Deploy to EKS
         run: |
-          echo "AWS_REGION=${{ env.AWS_REGION }}"
-          echo "ECR_REPOSITORY=${{ env.ECR_REPOSITORY }}"
-          echo "EKS_CLUSTER_NAME=${{ env.EKS_CLUSTER_NAME }}"
-          echo "K8S_NAMESPACE=${{ env.K8S_NAMESPACE }}"
-          echo "IMAGE_URI=${{ env.IMAGE_URI }}"
-          kubectl config view
-          kubectl get namespaces
-          kubectl get deployments -A
+          if kubectl get deployment $APP_NAME -n $K8S_NAMESPACE; then
+            kubectl set image deployment/$APP_NAME -n $K8S_NAMESPACE $CONTAINER_NAME=$IMAGE_URI
+            kubectl rollout status deployment/$APP_NAME -n $K8S_NAMESPACE
+          else
+            kubectl apply -f k8s/deployment.yaml
+          fi
