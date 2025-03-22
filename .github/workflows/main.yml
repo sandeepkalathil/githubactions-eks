@@ -126,16 +126,19 @@ jobs:
           if kubectl get deployment "$APP_NAME" -n "$K8S_NAMESPACE" > /dev/null 2>&1; then
               echo "✅ Deployment $APP_NAME exists. Updating image..."
               
-              CONTAINER_NAME=$(kubectl get deployment "$APP_NAME" -n "$K8S_NAMESPACE" -o jsonpath="{.spec.template.spec.containers[0].name}")
-
+              CONTAINER_NAME=$(kubectl get deployment "$APP_NAME" -n "$K8S_NAMESPACE" -o jsonpath="{.spec.template.spec.containers[0].name}" || echo "")
+              
               if [ -n "$CONTAINER_NAME" ]; then
                 echo "🔄 Updating container $CONTAINER_NAME with image $IMAGE_URI..."
-                kubectl set image deployment/"$APP_NAME" -n "$K8S_NAMESPACE" "$CONTAINER_NAME=$IMAGE_URI"
-                
-                if kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE"; then
-                  echo "✅ Rollout successful."
+                if kubectl set image deployment/"$APP_NAME" -n "$K8S_NAMESPACE" "$CONTAINER_NAME=$IMAGE_URI"; then
+                  if kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE"; then
+                    echo "✅ Rollout successful."
+                  else
+                    echo "❌ Rollout failed."
+                    exit 1
+                  fi
                 else
-                  echo "❌ Rollout failed."
+                  echo "❌ Failed to set image for deployment."
                   exit 1
                 fi
               else
