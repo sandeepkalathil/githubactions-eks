@@ -65,8 +65,11 @@ jobs:
       - name: Set ECR Image Tag
         run: |
           IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          IMAGE_LATEST="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest"
+          
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
-          echo "IMAGE_LATEST=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest" >> $GITHUB_ENV
+          echo "IMAGE_LATEST=$IMAGE_LATEST" >> $GITHUB_ENV
+          
           echo "Image URI: $IMAGE_URI"
 
       - name: Set up Docker Buildx
