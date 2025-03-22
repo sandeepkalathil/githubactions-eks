@@ -124,11 +124,11 @@ jobs:
 
       - name: Deploy to EKS
         run: |
-              if kubectl get deployment my-app -n $K8S_NAMESPACE; then
-                kubectl set image deployment/my-app my-app-container=${{ env.IMAGE_URI }} -n $K8S_NAMESPACE
-                kubectl rollout status deployment/my-app -n $K8S_NAMESPACE
-              else
-                kubectl create namespace $K8S_NAMESPACE || true
-                kubectl apply -f k8s/deployment.yaml -n $K8S_NAMESPACE
-              fi
+          kubectl create namespace $K8S_NAMESPACE || true  # Ensure namespace exists
+          if kubectl get deployment freshmart -n $K8S_NAMESPACE; then
+            kubectl set image deployment/freshmart freshmart=${{ env.IMAGE_URI }} -n ${K8S_NAMESPACE}
+            kubectl rollout status deployment/freshmart -n ${K8S_NAMESPACE}
+          else
+            kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
+          fi
           
