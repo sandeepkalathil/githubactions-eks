@@ -96,7 +96,11 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.IMAGE_URI }},${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          tags: |
+            ${{ env.IMAGE_URI }}
+            794038256791.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest
+      
+          
 
   deploy:
     needs: build-and-push
