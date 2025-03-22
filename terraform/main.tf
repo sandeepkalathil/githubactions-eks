@@ -2,10 +2,9 @@ provider "aws" {
   region = "eu-north-1"
 }
 
-
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"  # Ensure it's updated to the latest major version
+  version = "~> 5.0"
 
   name = "${var.project_name}-vpc"
   cidr = "10.0.0.0/16"
@@ -88,22 +87,48 @@ resource "aws_ecr_repository" "app_repo" {
 resource "aws_iam_openid_connect_provider" "github" {
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"] # Check and update if needed
+  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+}
+
+resource "aws_ecr_repository_policy" "app_repo_policy" {
+  repository = aws_ecr_repository.app_repo.name
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid       = "GitHubActionsPushPull",
+        Effect    = "Allow",
+        Principal = {
+          AWS = aws_iam_role.github_actions_role.arn
+        },
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload"
+        ]
+      }
+    ]
+  })
 }
 
 resource "aws_iam_policy" "ecr_push_policy" {
   name        = "ECRPushPolicy"
   description = "Policy to allow GitHub Actions to push to ECR"
   policy      = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["ecr:GetAuthorizationToken"]
+        Effect   = "Allow",
+        Action   = ["ecr:GetAuthorizationToken"],
         Resource = "*"
       },
       {
-        Effect   = "Allow"
+        Effect   = "Allow",
         Action   = [
           "ecr:BatchCheckLayerAvailability",
           "ecr:CompleteLayerUpload",
@@ -111,8 +136,8 @@ resource "aws_iam_policy" "ecr_push_policy" {
           "ecr:InitiateLayerUpload",
           "ecr:PutImage",
           "ecr:UploadLayerPart"
-        ]
-        Resource = "arn:aws:ecr:eu-north-1:794038256791:repository/freshfarm-repo"
+        ],
+        Resource = aws_ecr_repository.app_repo.arn
       }
     ]
   })
@@ -121,14 +146,14 @@ resource "aws_iam_policy" "ecr_push_policy" {
 resource "aws_iam_role" "github_actions_role" {
   name = "GitHubActionsECRRole"
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [
       {
-        Effect = "Allow"
+        Effect = "Allow",
         Principal = {
-          Federated = "arn:aws:iam::794038256791:oidc-provider/token.actions.githubusercontent.com"
-        }
-        Action = "sts:AssumeRoleWithWebIdentity"
+          Federated = aws_iam_openid_connect_provider.github.arn
+        },
+        Action = "sts:AssumeRoleWithWebIdentity",
         Condition = {
           StringLike = {
             "token.actions.githubusercontent.com:sub" = "repo:sandeepkalathil/githubactions-eks:*"
