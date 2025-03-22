@@ -85,6 +85,12 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
+      - name: Debug Variables
+        run: |
+            echo "IMAGE_URI: ${{ env.IMAGE_URI }}"
+            echo "ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}"
+            
+
       - name: Push Docker image to Amazon ECR
         uses: docker/build-push-action@v5
         with:
