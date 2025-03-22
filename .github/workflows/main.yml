@@ -71,6 +71,7 @@ jobs:
           echo "IMAGE_LATEST=$IMAGE_LATEST" >> $GITHUB_ENV
       
           echo "Image URI: $IMAGE_URI"
+      
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
