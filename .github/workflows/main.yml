@@ -9,7 +9,7 @@ on:
 env:
   AWS_REGION: eu-north-1
   ECR_REPOSITORY: freshfarm-repo  # Ensure this matches your actual ECR repo name
-  EKS_CLUSTER_NAME: freshfarm-cluster  # Ensure this matches your EKS cluster name
+  EKS_CLUSTER_NAME: Freshfarm-cluster  # Ensure this matches your EKS cluster name
 
 jobs:
   test:
@@ -106,7 +106,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-          
+
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
 

@@ -167,9 +167,76 @@ resource "aws_iam_role" "github_actions_role" {
   })
 }
 
+resource "aws_iam_policy" "eks_deploy_policy" {
+  name        = "EKSDeployPolicy"
+  description = "Policy to allow GitHub Actions to deploy to EKS"
+  policy      = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = [
+          "eks:DescribeCluster",
+          "eks:ListClusters",
+          "eks:ListNodegroups",
+          "eks:DescribeNodegroup",
+          "eks:ListFargateProfiles",
+          "eks:DescribeFargateProfile",
+          "eks:ListAddons",
+          "eks:DescribeAddon",
+          "eks:AccessKubernetesApi"
+        ]
+        Resource = "arn:aws:eks:eu-north-1:${data.aws_caller_identity.current.account_id}:cluster/${var.project_name}-cluster"
+      },
+      {
+        Effect   = "Allow"
+        Action   = [
+          "iam:PassRole"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "eks.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "eks_kubectl_policy" {
+  name        = "EKSKubectlPolicy"
+  description = "Policy to allow GitHub Actions to interact with Kubernetes via IAM"
+  policy      = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = [
+          "eks:AccessKubernetesApi"
+        ]
+        Resource = "arn:aws:eks:eu-north-1:${data.aws_caller_identity.current.account_id}:cluster/${var.project_name}-cluster"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "github_kubectl_attach" {
+  role       = aws_iam_role.github_actions_role.name
+  policy_arn = aws_iam_policy.eks_kubectl_policy.arn
+}
+
+
+resource "aws_iam_role_policy_attachment" "github_eks_attach" {
+  role       = aws_iam_role.github_actions_role.name
+  policy_arn = aws_iam_policy.eks_deploy_policy.arn
+}
+
+
 resource "aws_iam_role_policy_attachment" "github_ecr_attach" {
   role       = aws_iam_role.github_actions_role.name
   policy_arn = aws_iam_policy.ecr_push_policy.arn
+   
 }
 
 resource "aws_iam_role_policy_attachment" "node_ecr_pull" {
