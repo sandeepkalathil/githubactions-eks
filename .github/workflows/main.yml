@@ -64,7 +64,8 @@ jobs:
         run: |
           IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
-      
+          echo "IMAGE_LATEST=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest" >> $GITHUB_ENV
+          echo "Image URI: $IMAGE_URI"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -118,17 +119,21 @@ jobs:
 
       - name: Ensure Namespace Exists
         run: |
-            if ! kubectl get namespace $K8S_NAMESPACE; then
-              kubectl create namespace $K8S_NAMESPACE
-            fi
+          if ! kubectl get namespace $K8S_NAMESPACE; then
+            kubectl create namespace $K8S_NAMESPACE
+          fi
+          echo "Waiting for namespace to be available..."
+          sleep 5
+          kubectl get namespace $K8S_NAMESPACE
 
       - name: Deploy to EKS
         run: |
-          kubectl create namespace $K8S_NAMESPACE || true  # Ensure namespace exists
           if kubectl get deployment freshmart -n $K8S_NAMESPACE; then
+            echo "Updating deployment..."
             kubectl set image deployment/freshmart freshmart=${{ env.IMAGE_URI }} -n ${K8S_NAMESPACE}
             kubectl rollout status deployment/freshmart -n ${K8S_NAMESPACE}
           else
+            echo "Deploying new application..."
             kubectl apply -f k8s/deployment.yaml -n ${K8S_NAMESPACE}
+            kubectl rollout status deployment/freshmart -n ${K8S_NAMESPACE}
           fi
-          
