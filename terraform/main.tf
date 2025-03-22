@@ -239,6 +239,12 @@ resource "aws_iam_role_policy_attachment" "github_ecr_attach" {
    
 }
 
+resource "aws_iam_role_policy_attachment" "eks_cluster_policy_attachment" {
+  role       = aws_iam_role.github_actions_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+}
+
+
 resource "aws_iam_role_policy_attachment" "node_ecr_pull" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
   role       = module.eks.eks_managed_node_groups["general"].iam_role_name
