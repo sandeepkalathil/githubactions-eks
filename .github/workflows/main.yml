@@ -12,7 +12,7 @@ env:
   EKS_CLUSTER_NAME: Freshfarm-cluster  
   K8S_NAMESPACE: freshmart
   APP_NAME: freshmart
-  IMAGE_URI: 794038256791.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest
+  
 
 jobs:
   test:
@@ -99,6 +99,8 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      IMAGE_URI: 794038256791.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest  
 
     steps:
       - name: Checkout Code
