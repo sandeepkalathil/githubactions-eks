@@ -108,7 +108,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Update kubeconfig
-        run: aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
+        run: aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME --role-arn ${{ secrets.AWS_ROLE_ARN }}
 
       - name: Debug Kubernetes Access
         run: |
