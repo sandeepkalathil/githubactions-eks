@@ -102,30 +102,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-         fetch-depth: 0
+          fetch-depth: 0
       
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: eu-north-1  # Hardcoding since env variables might not be set yet
+
+      - name: Set Environment Variables
+        run: |
+          echo "AWS_REGION=eu-north-1" >> $GITHUB_ENV
+          echo "ECR_REPOSITORY=freshfarm-repo" >> $GITHUB_ENV
+          echo "EKS_CLUSTER_NAME=Freshfarm-cluster" >> $GITHUB_ENV
+          echo "K8S_NAMESPACE=freshmart" >> $GITHUB_ENV
+          echo "IMAGE_URI=123456789.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest" >> $GITHUB_ENV
+        shell: bash
 
       - name: Update kubeconfig
-        run: aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME --role-arn ${{ secrets.AWS_ROLE_ARN }}
-
-      - name: Debug Kubernetes Access
-        run: |
-          kubectl cluster-info
-          kubectl get nodes
-          kubectl get namespaces  
+        run: aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --region $AWS_REGION
 
       - name: Ensure Namespace Exists
         run: |
-          if ! kubectl get namespace $K8S_NAMESPACE; then
-            kubectl create namespace $K8S_NAMESPACE
-          fi
-          echo "Waiting for namespace to be available..."
-          sleep 5
-          kubectl get namespace $K8S_NAMESPACE
+          kubectl create namespace $K8S_NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
-      
+      - name: Print Debugging Info
+        run: |
+          echo "AWS_REGION=${{ env.AWS_REGION }}"
+          echo "ECR_REPOSITORY=${{ env.ECR_REPOSITORY }}"
+          echo "EKS_CLUSTER_NAME=${{ env.EKS_CLUSTER_NAME }}"
+          echo "K8S_NAMESPACE=${{ env.K8S_NAMESPACE }}"
+          echo "IMAGE_URI=${{ env.IMAGE_URI }}"
+          kubectl config view
+          kubectl get namespaces
+          kubectl get deployments -A
