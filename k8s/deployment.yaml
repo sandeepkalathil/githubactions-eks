@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: freshmart
+  namespace: freshmart
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: freshmart
+  template:
+    metadata:
+      labels:
+        app: freshmart
+    spec:
+      containers:
+        - name: freshmart
+          image: ghcr.io/sandeepkalathil/githubactions:latest  # Replace OWNER with your GitHub username
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10

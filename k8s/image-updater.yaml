@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: freshmart-image-updater
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - name: freshmart
+  template:
+    metadata:
+      name: '{{name}}'
+    spec:
+      source:
+        repoURL: https://github.com/sandeepkalathil/githubactions.git 
+        targetRevision: HEAD
+        path: k8s
+        plugin:
+          name: argocd-image-updater
+      project: default
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: freshmart
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
