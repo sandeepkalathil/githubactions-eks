@@ -2,7 +2,6 @@ provider "aws" {
   region = "eu-north-1"
 }
 
-data "aws_caller_identity" "current" {}
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
@@ -73,6 +72,8 @@ module "eks" {
   tags = var.common_tags
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_ecr_repository" "app_repo" {
   name = var.ecr_repository_name
   image_scanning_configuration {
@@ -82,6 +83,12 @@ resource "aws_ecr_repository" "app_repo" {
     encryption_type = "AES256"
   }
   tags = var.common_tags
+}
+
+resource "aws_iam_openid_connect_provider" "github" {
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"] # Check and update if needed
 }
 
 resource "aws_iam_policy" "ecr_push_policy" {
@@ -105,7 +112,7 @@ resource "aws_iam_policy" "ecr_push_policy" {
           "ecr:PutImage",
           "ecr:UploadLayerPart"
         ]
-        Resource = aws_ecr_repository.app_repo.arn
+        Resource = "arn:aws:ecr:eu-north-1:794038256791:repository/freshfarm-repo"
       }
     ]
   })
@@ -119,12 +126,12 @@ resource "aws_iam_role" "github_actions_role" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
+          Federated = "arn:aws:iam::794038256791:oidc-provider/token.actions.githubusercontent.com"
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*"
+            "token.actions.githubusercontent.com:sub" = "repo:sandeepkalathil/githubactions-eks:*"
           },
           StringEquals = {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
