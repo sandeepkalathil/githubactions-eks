@@ -215,7 +215,7 @@ resource "aws_iam_policy" "eks_kubectl_policy" {
         Action   = [
           "eks:AccessKubernetesApi"
         ]
-        Resource = "arn:aws:eks:eu-north-1:${data.aws_caller_identity.current.account_id}:cluster/${var.project_name}-cluster"
+        Resource = "*"
       }
     ]
   })

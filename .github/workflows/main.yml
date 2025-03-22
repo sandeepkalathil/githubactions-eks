@@ -110,6 +110,11 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
 
+      - name: Debug Kubernetes Access
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
       - name: Deploy to EKS
         run: |
           if kubectl get deployment my-app; then
