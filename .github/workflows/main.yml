@@ -95,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     
     permissions:
-      id-token: write  # Required for OIDC authentication
+      id-token: write 
       contents: read
 
     steps:
@@ -106,7 +106,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-
+          
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
 
