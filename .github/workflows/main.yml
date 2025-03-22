@@ -8,8 +8,8 @@ on:
 
 env:
   AWS_REGION: eu-north-1
-  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-  EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+  ECR_REPOSITORY: freshfarm-repo  # Ensure this matches your actual ECR repo name
+  EKS_CLUSTER_NAME: freshfarm-cluster  # Ensure this matches your EKS cluster name
 
 jobs:
   test:
@@ -60,17 +60,22 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Set ECR Image Tag
-        run: echo "IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_ENV
+        run: |
+          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}"
+          echo "IMAGE_URI=$IMAGE_URI:${{ github.sha }}" >> $GITHUB_ENV
+          echo "IMAGE_LATEST=$IMAGE_URI:latest" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
-          load: true
-          tags: ${{ env.IMAGE_URI }}
+          push: true
+          tags: |
+            ${{ env.IMAGE_URI }}
+            ${{ env.IMAGE_LATEST }}
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -84,23 +89,6 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
-
-      - name: Debug Variables
-        run: |
-            echo "IMAGE_URI: ${{ env.IMAGE_URI }}"
-            echo "ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}"
-            
-
-      - name: Push Docker image to Amazon ECR
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ env.IMAGE_URI }}
-            794038256791.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest
-      
-          
 
   deploy:
     needs: build-and-push
@@ -120,5 +108,9 @@ jobs:
 
       - name: Deploy to EKS
         run: |
-          kubectl set image deployment/my-app my-app-container=${{ env.IMAGE_URI }}
-          kubectl rollout status deployment/my-app
+          if kubectl get deployment my-app; then
+            kubectl set image deployment/my-app my-app-container=${{ env.IMAGE_URI }}
+            kubectl rollout status deployment/my-app
+          else
+            kubectl apply -f k8s/deployment.yaml
+          fi
