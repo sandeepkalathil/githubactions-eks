@@ -1,0 +1,19 @@
+PS I:\GithubActions - ECR-EKS> aws eks update-cluster-config --region eu-north-1 --name Freshfarm-cluster --resources-vpc-config endpointPublicAccess=true
+
+An error occurred (InvalidParameterException) when calling the UpdateClusterConfig operation: Cluster is already at the desired configuration with endpointPrivateAccess: true , 
+endpointPublicAccess: true, and Public Endpoint Restrictions: [0.0.0.0/0]
+PS I:\GithubActions - ECR-EKS> aws sts get-caller-identity
+{
+    "UserId": "AIDA3RYC6ISL3YI2D3KPJ",
+    "Account": "794038256791",
+    "Arn": "arn:aws:iam::794038256791:user/sandeep"
+}
+
+PS I:\GithubActions - ECR-EKS> aws eks update-kubeconfig --region eu-north-1 --name Freshfarm-cluster
+Updated context arn:aws:eks:eu-north-1:794038256791:cluster/Freshfarm-cluster in C:\Users\SANDEEP\.kube\config
+PS I:\GithubActions - ECR-EKS> kubectl get nodes
+NAME                                        STATUS   ROLES    AGE    VERSION
+ip-10-0-1-196.eu-north-1.compute.internal   Ready    <none>   5h5m   v1.28.15-eks-aeac579
+ip-10-0-2-170.eu-north-1.compute.internal   Ready    <none>   5h5m   v1.28.15-eks-aeac579
+PS I:\GithubActions - ECR-EKS> kubectl create clusterrolebinding github-actions-binding --clusterrole=cluster-admin --user arn:aws:iam::794038256791:role/GitHubActionsECRRole   
+clusterrolebinding.rbac.authorization.k8s.io/github-actions-binding created
