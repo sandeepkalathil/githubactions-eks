@@ -92,84 +92,83 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    env:
-      IMAGE_URI: 794038256791.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest  
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-      
-
-          - name: Force Update Kubeconfig
-          run: aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
+        deploy:
+            needs: build-and-push
+            runs-on: ubuntu-latest
+            permissions:
+              id-token: write
+              contents: read
+            env:
+              IMAGE_URI: 794038256791.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest  
         
-        # 🛠️ Debug Step 1: Check AWS Authentication
-        - name: Verify AWS IAM Role
-          run: aws sts get-caller-identity
+            steps:
+              - name: Checkout Code
+                uses: actions/checkout@v4
+                with:
+                  fetch-depth: 0
         
-        # 🛠️ Debug Step 2: Check Kubernetes Cluster Connection
-        - name: Verify Kubernetes Access
-          run: |
-            kubectl cluster-info
-            kubectl get nodes
+              - name: Configure AWS Credentials
+                uses: aws-actions/configure-aws-credentials@v4
+                with:
+                  role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+                  aws-region: ${{ env.AWS_REGION }}
         
-        # 🛠️ Debug Step 3: Reload Kubernetes Context
-        - name: Reload Kubernetes Context
-          run: |
-            export KUBECONFIG=$HOME/.kube/config
-            kubectl config view
-            kubectl config current-context
+              - name: Force Update Kubeconfig
+                run: aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
         
-        # 🛠️ Debug Step 4: Test AWS Auth Token (if needed)
-        - name: Test AWS Auth
-          run: aws eks get-token --cluster-name $EKS_CLUSTER_NAME
+              # 🛠️ Debug Step 1: Check AWS Authentication
+              - name: Verify AWS IAM Role
+                run: aws sts get-caller-identity
         
-        # ✅ Ensure Namespace Exists
-        - name: Ensure Namespace Exists
-          run: |
-            kubectl create namespace $K8S_NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
-         
-      - name: Deploy to EKS
-        run: |
-              if kubectl get deployment "$APP_NAME" -n "$K8S_NAMESPACE" > /dev/null 2>&1; then
-              echo "✅ Deployment $APP_NAME exists. Updating image..."
+              # 🛠️ Debug Step 2: Check Kubernetes Cluster Connection
+              - name: Verify Kubernetes Access
+                run: |
+                  kubectl cluster-info
+                  kubectl get nodes
         
-              CONTAINER_NAME=$(kubectl get deployment "$APP_NAME" -n "$K8S_NAMESPACE" -o jsonpath="{.spec.template.spec.containers[0].name}")
-
-              if [ -n "$CONTAINER_NAME" ]; then
-              echo "🔄 Updating container $CONTAINER_NAME with image $IMAGE_URI..."
-              kubectl set image deployment/"$APP_NAME" -n "$K8S_NAMESPACE" "$CONTAINER_NAME=$IMAGE_URI"
-          
-              if kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE"; then
-              echo "✅ Rollout successful."
-              else
-                echo "❌ Rollout failed."
-                exit 1
-              fi
-               else
-                echo "❌ Error: Could not determine container name."
-                exit 1
-                fi
-                else
-                echo "🚀 Deployment $APP_NAME does not exist. Applying manifest..."
-               if kubectl apply -f k8s/deployment.yaml; then
-                echo "✅ Deployment applied successfully."
-               else
-                echo "❌ Failed to apply deployment."
-                 exit 1
-                fi
-                 fi
+              # 🛠️ Debug Step 3: Reload Kubernetes Context
+              - name: Reload Kubernetes Context
+                run: |
+                  export KUBECONFIG=$HOME/.kube/config
+                  kubectl config view
+                  kubectl config current-context
+        
+              # 🛠️ Debug Step 4: Test AWS Auth Token (if needed)
+              - name: Test AWS Auth
+                run: aws eks get-token --cluster-name $EKS_CLUSTER_NAME
+        
+              # ✅ Ensure Namespace Exists
+              - name: Ensure Namespace Exists
+                run: |
+                  kubectl create namespace $K8S_NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+        
+              - name: Deploy to EKS
+                run: |
+                  if kubectl get deployment "$APP_NAME" -n "$K8S_NAMESPACE" > /dev/null 2>&1; then
+                    echo "✅ Deployment $APP_NAME exists. Updating image..."
+                    CONTAINER_NAME=$(kubectl get deployment "$APP_NAME" -n "$K8S_NAMESPACE" -o jsonpath="{.spec.template.spec.containers[0].name}")
+        
+                    if [ -n "$CONTAINER_NAME" ]; then
+                      echo "🔄 Updating container $CONTAINER_NAME with image $IMAGE_URI..."
+                      kubectl set image deployment/"$APP_NAME" -n "$K8S_NAMESPACE" "$CONTAINER_NAME=$IMAGE_URI"
+        
+                      if kubectl rollout status deployment/"$APP_NAME" -n "$K8S_NAMESPACE"; then
+                        echo "✅ Rollout successful."
+                      else
+                        echo "❌ Rollout failed."
+                        exit 1
+                      fi
+                    else
+                      echo "❌ Error: Could not determine container name."
+                      exit 1
+                    fi
+                  else
+                    echo "🚀 Deployment $APP_NAME does not exist. Applying manifest..."
+                    if kubectl apply -f k8s/deployment.yaml; then
+                      echo "✅ Deployment applied successfully."
+                    else
+                      echo "❌ Failed to apply deployment."
+                      exit 1
+                    fi
+                  fi
+        
