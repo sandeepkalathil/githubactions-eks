@@ -129,3 +129,9 @@ jobs:
           else
             kubectl apply -f k8s/deployment.yaml
           fi
+      - name: Expose the app via LoadBalancer
+        run: |
+            kubectl apply -f k8s/service.yaml   
+      - name: Get Service External IP
+        run: |
+              kubectl get svc freshmart -n freshmart       

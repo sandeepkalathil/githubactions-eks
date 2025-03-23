@@ -17,3 +17,363 @@ ip-10-0-1-196.eu-north-1.compute.internal   Ready    <none>   5h5m   v1.28.15-ek
 ip-10-0-2-170.eu-north-1.compute.internal   Ready    <none>   5h5m   v1.28.15-eks-aeac579
 PS I:\GithubActions - ECR-EKS> kubectl create clusterrolebinding github-actions-binding --clusterrole=cluster-admin --user arn:aws:iam::794038256791:role/GitHubActionsECRRole   
 clusterrolebinding.rbac.authorization.k8s.io/github-actions-binding created
+
+
+
+
+
+
+
+
+The error:
+
+sh
+Copy
+Edit
+error validating "STDIN": error validating data: failed to download openapi: the server has asked for the client to provide credentials;
+indicates that kubectl is not authenticated properly with EKS. Even though you've updated kubeconfig, the IAM role assumed in GitHub Actions might not have the required access.
+
+✅ Fixes to Apply
+🔹 1️⃣ Verify AWS Authentication in GitHub Actions
+Add a debug step before using kubectl to check if GitHub Actions is assuming the correct IAM role:
+
+yaml
+Copy
+Edit
+      - name: Debug AWS Authentication
+        run: aws sts get-caller-identity
+✔ Expected Output
+It should show:
+
+ruby
+Copy
+Edit
+arn:aws:iam::794038256791:role/GitHubActionsECRRole
+❌ If it shows a user instead of a role, then GitHub Actions is not assuming the correct role. In that case, check AWS_ROLE_ARN in GitHub Secrets.
+
+🔹 2️⃣ Verify Kubernetes Cluster Access
+Before applying the namespace, ensure kubectl is authenticated:
+
+yaml
+Copy
+Edit
+      - name: Verify Kubernetes Access
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+❌ If this fails, then kubectl is not authenticated.
+
+🔹 3️⃣ Fix kubectl Authentication with IAM Role Binding
+Even if kubectl is configured, EKS uses IAM-based authentication, which means you need a Kubernetes aws-auth ConfigMap.
+
+🛠 Fix: Manually Map Your IAM Role to Kubernetes RBAC
+Get the current aws-auth ConfigMap:
+
+sh
+Copy
+Edit
+kubectl get configmap aws-auth -n kube-system -o yaml
+If your role is missing, edit it:
+
+sh
+Copy
+Edit
+kubectl edit configmap aws-auth -n kube-system
+Add the following under mapRoles:
+
+yaml
+Copy
+Edit
+- rolearn: arn:aws:iam::794038256791:role/GitHubActionsECRRole
+  username: system:node:github-actions
+  groups:
+    - system:masters
+Then save and exit.
+
+Apply the changes:
+
+sh
+Copy
+Edit
+kubectl apply -f aws-auth.yaml
+✅ Now your GitHub Actions IAM role can authenticate with EKS.
+
+🔹 4️⃣ Ensure Kubernetes Namespace Creation Works
+Replace the namespace creation step with:
+
+yaml
+Copy
+Edit
+      - name: Ensure Namespace Exists
+        run: |
+          kubectl get namespace $K8S_NAMESPACE || kubectl create namespace $K8S_NAMESPACE
+This avoids the OpenAPI validation error.
+
+✅ Final Working deploy Job
+yaml
+Copy
+Edit
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      IMAGE_URI: 794038256791.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest  
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Debug AWS Authentication
+        run: aws sts get-caller-identity
+
+      - name: Force Update Kubeconfig
+        run: |
+          aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
+          kubectl config use-context arn:aws:eks:eu-north-1:794038256791:cluster/$EKS_CLUSTER_NAME
+
+      - name: Verify Kubernetes Access
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Ensure Namespace Exists
+        run: |
+          kubectl get namespace $K8S_NAMESPACE || kubectl create namespace $K8S_NAMESPACE
+
+      - name: Deploy to EKS
+        run: |
+          if kubectl get deployment $APP_NAME -n $K8S_NAMESPACE; then
+            kubectl set image deployment/$APP_NAME -n $K8S_NAMESPACE $CONTAINER_NAME=$IMAGE_URI
+            kubectl rollout status deployment/$APP_NAME -n $K8S_NAMESPACE
+          else
+            kubectl apply -f k8s/deployment.yaml
+          fi
+🚀 Summary of Fixes
+✔ Debug AWS IAM Role in GitHub Actions (aws sts get-caller-identity)
+✔ Check Kubernetes access (kubectl get nodes)
+✔ Fix Kubernetes Role Mapping (aws-auth ConfigMap update)
+✔ Ensure namespace creation does not fail
+
+Run your pipeline again and let me know if you still face issues! 🚀
+
+
+
+
+
+
+
+You said:
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+apiVersion: v1
+data:
+  mapRoles: |
+    - groups:
+      - system:bootstrappers
+      - system:nodes
+      rolearn: arn:aws:iam::794038256791:role/general-eks-node-group-20250323033421308900000001
+      username: system:node:{{EC2PrivateDNSName}}
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2025-03-23T03:45:36Z"
+  name: aws-auth
+  namespace: kube-system
+  resourceVersion: "1230"
+  uid: 237098d2-9f59-44ca-8e97-cabeb9200a2c
+
+can u update
+ChatGPT said:
+You need to update your aws-auth ConfigMap to include the GitHub Actions IAM role so that it can authenticate with Kubernetes.
+
+🔹 Updated aws-auth ConfigMap
+Add the following under mapRoles to grant system:masters permissions to the GitHub Actions role.
+
+yaml
+Copy
+Edit
+apiVersion: v1
+data:
+  mapRoles: |
+    - groups:
+      - system:bootstrappers
+      - system:nodes
+      rolearn: arn:aws:iam::794038256791:role/general-eks-node-group-20250323033421308900000001
+      username: system:node:{{EC2PrivateDNSName}}
+      
+    - groups:
+      - system:masters
+      rolearn: arn:aws:iam::794038256791:role/GitHubActionsECRRole
+      username: github-actions-user
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2025-03-23T03:45:36Z"
+  name: aws-auth
+  namespace: kube-system
+  resourceVersion: "1230"
+  uid: 237098d2-9f59-44ca-8e97-cabeb9200a2c
+✅ Next Steps
+1️⃣ Apply the Updated ConfigMap
+
+sh
+Copy
+Edit
+kubectl apply -f aws-auth.yaml
+2️⃣ Verify the Role is Mapped
+
+sh
+Copy
+Edit
+kubectl get configmap aws-auth -n kube-system -o yaml
+Ensure that the GitHubActionsECRRole is present.
+
+3️⃣ Retry GitHub Actions Workflow
+Now, run your CI/CD pipeline again.
+
+🚀 Summary of Fixes
+✔ Added GitHubActionsECRRole to aws-auth ConfigMap
+✔ Granted system:masters access to enable kubectl execution
+✔ Applied the ConfigMap and verified the role binding
+
+Run the steps and let me know if you still face issues! 🚀
+
+
+
+
+PS I:\GithubActions - ECR-EKS> kubectl create clusterrolebinding github-actions-binding --clusterrole=cluster-admin --user arn:aws:iam::794038256791:role/GitHubActionsECRRole   
+clusterrolebinding.rbac.authorization.k8s.io/github-actions-binding created
+PS I:\GithubActions - ECR-EKS> git add .                                                                                                                                         
+warning: in the working copy of '.github/workflows/main.yml', LF will be replaced by CRLF the next time Git touches it
+PS I:\GithubActions - ECR-EKS> git commit -m "first commit"                                                                                                                      
+[main 877660b] first commit
+ 1 file changed, 36 insertions(+), 1 deletion(-)
+Enumerating objects: 9, done.
+Delta compression using up to 4 threads
+Compressing objects: 100% (3/3), done.
+Total 5 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/sandeepkalathil/githubactions-eks.git
+   1c5709f..877660b  main -> main
+branch 'main' set up to track 'origin/main'.
+PS I:\GithubActions - ECR-EKS> git add .
+warning: in the working copy of '.github/workflows/main.yml', LF will be replaced by CRLF the next time Git touches it
+PS I:\GithubActions - ECR-EKS> git commit -m "first commit"
+[main 6ea9826] first commit
+ 2 files changed, 31 insertions(+), 54 deletions(-)
+PS I:\GithubActions - ECR-EKS> git push -u origin main     
+Enumerating objects: 10, done.
+Counting objects: 100% (10/10), done.
+Delta compression using up to 4 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (6/6), 1.26 KiB | 1.26 MiB/s, done.
+Total 6 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/sandeepkalathil/githubactions-eks.git
+   877660b..6ea9826  main -> main
+branch 'main' set up to track 'origin/main'.
+PS I:\GithubActions - ECR-EKS> git add .
+warning: in the working copy of '.github/workflows/main.yml', LF will be replaced by CRLF the next time Git touches it
+PS I:\GithubActions - ECR-EKS> git commit -m "first commit"
+[main c3c7bc0] first commit
+PS I:\GithubActions - ECR-EKS> git push -u origin main     
+Counting objects: 100% (9/9), done.
+Compressing objects: 100% (3/3), done.
+Writing objects: 100% (5/5), 410 bytes | 410.00 KiB/s, done.
+Total 5 (delta 2), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/sandeepkalathil/githubactions-eks.git
+   6ea9826..c3c7bc0  main -> main
+branch 'main' set up to track 'origin/main'.
+PS I:\GithubActions - ECR-EKS> kubectl get configmap aws-auth -n kube-system -o yaml
+apiVersion: v1
+data:
+  mapRoles: |
+    - groups:
+      - system:nodes
+      username: system:node:{{EC2PrivateDNSName}}
+  name: aws-auth
+  namespace: kube-system
+  resourceVersion: "1230"
+PS I:\GithubActions - ECR-EKS> kubectl edit configmap aws-auth -n kube-system
+configmap/aws-auth edited
+PS I:\GithubActions - ECR-EKS> kubectl apply -f aws-auth.yaml
+error: the path "aws-auth.yaml" does not exist
+PS I:\GithubActions - ECR-EKS> kubectl get configmap aws-auth -n kube-system -o yaml
+apiVersion: v1
+data:
+  mapRoles: "- groups:\n  - system:bootstrappers\n  - system:nodes\n  rolearn: arn:aws:iam::794038256791:role/general-eks-node-group-20250323033421308900000001\n
+    \ username: system:node:{{EC2PrivateDNSName}}\n  \n- groups:\n  - system:masters\n
+    \ rolearn: arn:aws:iam::794038256791:role/GitHubActionsECRRole\n  username: github-actions-user\n"
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2025-03-23T03:45:36Z"
+  name: aws-auth
+  namespace: kube-system
+  resourceVersion: "59292"
+  uid: 237098d2-9f59-44ca-8e97-cabeb9200a2c
+error: the path "aws-auth.yaml" does not exist
+PS I:\GithubActions - ECR-EKS> kubectl apply -f aws-auth.yaml
+error: the path "aws-auth.yaml" does not exist
+PS I:\GithubActions - ECR-EKS>
+PS I:\GithubActions - ECR-EKS>
+PS I:\GithubActions - ECR-EKS> kubectl apply -f aws-auth.yaml
+Warning: resource configmaps/aws-auth is missing the kubectl.kubernetes.io/last-applied-configuration annotation which is required by kubectl apply. kubectl apply should only be used on resources created declaratively by either kubectl create --save-config or kubectl apply. The missing annotation will be patched automatically.
+configmap/aws-auth configured
+PS I:\GithubActions - ECR-EKS> kubectl get configmap aws-auth -n kube-system -o yaml
+apiVersion: v1
+data:
+  mapRoles: "- groups:\n  - system:bootstrappers\n  - system:nodes\n  rolearn: arn:aws:iam::794038256791:role/general-eks-node-group-20250323033421308900000001\n
+    \ username: system:node:{{EC2PrivateDNSName}}\n  \n- groups:\n  - system:masters\n
+    \ rolearn: arn:aws:iam::794038256791:role/GitHubActionsECRRole\n  username: github-actions-user\n"
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"mapRoles":"- groups:\n  - system:bootstrappers\n  - system:nodes\n  rolearn: arn:aws:iam::794038256791:role/general-eks-node-group-20250323033421308900000001\n  username: system:node:{{EC2PrivateDNSName}}\n  \n- groups:\n  - system:masters\n  rolearn: arn:aws:iam::794038256791:role/GitHubActionsECRRole\n  username: github-actions-user\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"aws-auth","namespace":"kube-system"}}
+  creationTimestamp: "2025-03-23T03:45:36Z"
+  name: aws-auth
+  namespace: kube-system
+  resourceVersion: "59975"
+PS I:\GithubActions - ECR-EKS> kubectl describe configmap aws-auth -n kube-system
+Name:         aws-auth
+Namespace:    kube-system
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+mapRoles:
+----
+- groups:
+  - system:bootstrappers
+  - system:nodes
+  rolearn: arn:aws:iam::794038256791:role/general-eks-node-group-20250323033421308900000001
+  username: system:node:{{EC2PrivateDNSName}}
+
+- groups:
+  - system:masters
+  rolearn: arn:aws:iam::794038256791:role/GitHubActionsECRRole
+  username: github-actions-user
+
+
+
+BinaryData
+====
+
+Events:  <none>
+PS I:\GithubActions - ECR-EKS> kubectl get nodes
+NAME                                        STATUS   ROLES    AGE     VERSION
+ip-10-0-1-196.eu-north-1.compute.internal   Ready    <none>   5h57m   v1.28.15-eks-aeac579
+ip-10-0-2-170.eu-north-1.compute.internal   Ready    <none>   5h57m   v1.28.15-eks-aeac579
