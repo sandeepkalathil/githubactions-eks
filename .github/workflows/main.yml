@@ -99,7 +99,8 @@ jobs:
       id-token: write
       contents: read
     env:
-      IMAGE_URI: 794038256791.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest  
+      IMAGE_URI: 794038256791.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest
+      CONTAINER_NAME: freshmart
 
     steps:
       - name: Checkout Code
