@@ -113,12 +113,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
       
-
-
-      - name: Verify AWS Authentication
-        run: aws sts get-caller-identity
-
-        
       - name: Configure Kubeconfig
         run: |
             aws eks update-kubeconfig --region "$AWS_REGION" --name "$EKS_CLUSTER_NAME" --role-arn "${{ secrets.AWS_ROLE_ARN }}"
@@ -126,7 +120,6 @@ jobs:
 
       
           
-
       - name: Ensure Namespace Exists
         run: kubectl create namespace $K8S_NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
 
