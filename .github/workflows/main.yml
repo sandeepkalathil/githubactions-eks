@@ -124,9 +124,11 @@ jobs:
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
           EKS_CLUSTER_NAME: ${{ env.EKS_CLUSTER_NAME }}
+          K8S_NAMESPACE: ${{ env.K8S_NAMESPACE }}
         run: |
           aws eks update-kubeconfig --region "$AWS_REGION" --name "$EKS_CLUSTER_NAME" --role-arn "${{ secrets.AWS_ROLE_ARN }}"
-          kubectl create namespace $K8S_NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+          kubectl auth can-i create namespace --namespace="$K8S_NAMESPACE" || exit 1
+          kubectl create namespace "$K8S_NAMESPACE" --dry-run=client -o yaml | kubectl apply --validate=false -f -
 
       - name: Deploy to EKS
         run: |
