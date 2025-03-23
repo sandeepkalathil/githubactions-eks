@@ -92,49 +92,47 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-        deploy:
-            needs: build-and-push
-            runs-on: ubuntu-latest
-            permissions:
-              id-token: write
-              contents: read
-            env:
-              IMAGE_URI: 794038256791.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest  
-        
-            steps:
-              - name: Checkout Code
-                uses: actions/checkout@v4
-                with:
-                  fetch-depth: 0
-        
-              - name: Configure AWS Credentials
-                uses: aws-actions/configure-aws-credentials@v4
-                with:
-                  role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-                  aws-region: ${{ env.AWS_REGION }}
-        
-              - name: Force Update Kubeconfig
-                run: aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME 
-        
-              # 🛠️ Debug Step 1: Check AWS Authentication
-              - name: Verify AWS IAM Role
-                run: aws sts get-caller-identity
-        
-              # 🛠️ Debug Step 2: Check Kubernetes Cluster Connection
-              - name: Verify Kubernetes Access
-                run: |
-                  kubectl cluster-info
-                  kubectl get nodes
-        
-              # 🛠️ Debug Step 3: Reload Kubernetes Context
-              - name: Reload Kubernetes Context
-                run: |
-                  export KUBECONFIG=$HOME/.kube/config
-                  kubectl config view
-                  kubectl config current-context
-        
-              # 🛠️ Debug Step 4: Test AWS Auth Token (if needed)
-              - name: Test AWS Auth
-                run: aws eks get-token --cluster-name $EKS_CLUSTER_NAME
-        
-              
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      IMAGE_URI: 794038256791.dkr.ecr.eu-north-1.amazonaws.com/freshfarm-repo:latest  
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Force Update Kubeconfig
+        run: aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME 
+
+      # 🛠️ Debug Step 1: Check AWS Authentication
+      - name: Verify AWS IAM Role
+        run: aws sts get-caller-identity
+
+      # 🛠️ Debug Step 2: Check Kubernetes Cluster Connection
+      - name: Verify Kubernetes Access
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      # 🛠️ Debug Step 3: Reload Kubernetes Context
+      - name: Reload Kubernetes Context
+        run: |
+          export KUBECONFIG=$HOME/.kube/config
+          kubectl config view
+          kubectl config current-context
+
+      # 🛠️ Debug Step 4: Test AWS Auth Token (if needed)
+      - name: Test AWS Auth
+        run: aws eks get-token --cluster-name $EKS_CLUSTER_NAME
