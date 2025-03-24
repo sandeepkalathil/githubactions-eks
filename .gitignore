@@ -47,3 +47,5 @@ dist-ssr
 
 .terraform/
 *.exe
+*.JPG
+*.docx
