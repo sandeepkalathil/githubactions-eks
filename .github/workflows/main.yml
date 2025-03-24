@@ -132,6 +132,14 @@ jobs:
           else
             kubectl apply -f k8s/deployment.yaml
           fi
+
+      - name: Deploy Kubernetes Service
+        run: |
+              if kubectl get svc $APP_NAME -n $K8S_NAMESPACE; then
+                echo "Service already exists, skipping..."
+              else
+                kubectl apply -f k8s/service.yaml
+              fi
       - name: Deploy Ingress Resource
         run: |
             kubectl apply -f k8s/ingress.yaml   
