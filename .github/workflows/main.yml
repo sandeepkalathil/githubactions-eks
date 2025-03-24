@@ -132,10 +132,10 @@ jobs:
           else
             kubectl apply -f k8s/deployment.yaml
           fi
-      - name: Expose the app via LoadBalancer
+      - name: Deploy Ingress Resource
         run: |
-            kubectl apply -f k8s/service.yaml   
+            kubectl apply -f k8s/ingress.yaml   
       
       - name: Get Service External IP
         run: |
-              kubectl get svc freshmart -n freshmart
+              kubectl get svc -n ingress-nginx

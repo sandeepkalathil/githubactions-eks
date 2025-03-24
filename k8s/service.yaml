@@ -4,7 +4,7 @@ metadata:
   name: freshmart
   namespace: freshmart
 spec:
-  type: LoadBalancer
+  type: ClusterIP  # Change from LoadBalancer to ClusterIP
   ports:
     - port: 80
       targetPort: 80
