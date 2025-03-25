@@ -3,6 +3,13 @@
 ## **Overview**
 This project demonstrates a **CI/CD pipeline** using **GitHub Actions** to deploy a **containerized application** to **Amazon EKS (Elastic Kubernetes Service)**. The deployment process is automated with **Terraform, Docker, and Kubernetes**, ensuring a streamlined **DevOps workflow**.
 
+![image](https://github.com/user-attachments/assets/92e9172d-dae0-46c5-8e55-0c14cf3936ee)
+
+
+![image](https://github.com/user-attachments/assets/d12c6a8c-f94e-43fd-bc6a-1821d907c46c)
+
+
+
 ## **🚀 Features**
 - **Automated CI/CD Pipeline** using **GitHub Actions**
 - **Infrastructure as Code (IaC)** using **Terraform**
